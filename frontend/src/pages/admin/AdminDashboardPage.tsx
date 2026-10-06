@@ -11,6 +11,13 @@ import { brand, formatBudgetLabel } from "../../config/brand";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
 import "./AdminDashboardPage.css";
 
+const STATUS_FILTERS = [
+  { id: "all", label: "All Enquiries" },
+  { id: "new", label: "New" },
+  { id: "in_progress", label: "In Progress" },
+  { id: "closed", label: "Closed" },
+];
+
 export default function AdminDashboardPage() {
   useDocumentMeta({
     title: `Admin Dashboard — ${brand.name}`,
@@ -27,6 +34,7 @@ export default function AdminDashboardPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [loadingList, setLoadingList] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -67,31 +75,44 @@ export default function AdminDashboardPage() {
     };
   }, [navigate]);
 
-  // 2. Fetch enquiries list
-  const fetchEnquiries = useCallback(async (targetPage: number) => {
-    setLoadingList(true);
-    setListError(null);
-    try {
-      const data = await enquiriesApi.list(targetPage, pageSize);
-      setEnquiries(data.items);
-      setTotal(data.total);
-      setPage(data.page);
-    } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 401) {
-        navigate("/admin/login", { replace: true });
-        return;
+  // 2. Fetch enquiries list with status filtering
+  const fetchEnquiries = useCallback(
+    async (targetPage: number, currentFilter: string) => {
+      setLoadingList(true);
+      setListError(null);
+      try {
+        const data = await enquiriesApi.list(
+          targetPage,
+          pageSize,
+          currentFilter === "all" ? undefined : currentFilter
+        );
+        setEnquiries(data.items);
+        setTotal(data.total);
+        setPage(data.page);
+      } catch (err: unknown) {
+        if (err instanceof ApiError && err.status === 401) {
+          navigate("/admin/login", { replace: true });
+          return;
+        }
+        setListError("Unable to load enquiries. Check your connection or try refreshing.");
+      } finally {
+        setLoadingList(false);
       }
-      setListError("Unable to load enquiries. Check your connection or try refreshing.");
-    } finally {
-      setLoadingList(false);
-    }
-  }, [pageSize, navigate]);
+    },
+    [pageSize, navigate]
+  );
 
   useEffect(() => {
     if (currentUser) {
-      fetchEnquiries(page);
+      fetchEnquiries(page, statusFilter);
     }
-  }, [currentUser, page, fetchEnquiries]);
+  }, [currentUser, page, statusFilter, fetchEnquiries]);
+
+  // Filter change handler
+  const handleFilterChange = (filterId: string) => {
+    setStatusFilter(filterId);
+    setPage(1);
+  };
 
   // 3. Open enquiry details
   const handleSelectEnquiry = async (item: EnquiryListItem) => {
@@ -102,7 +123,7 @@ export default function AdminDashboardPage() {
     try {
       const detail = await enquiriesApi.get(item.id);
       setSelectedEnquiry(detail);
-      setEditStatus(detail.status);
+      setEditStatus(detail.status as "new" | "in_progress" | "closed");
       setEditNotes(detail.notes || "");
     } catch {
       setDetailError("Failed to load enquiry details.");
@@ -169,14 +190,14 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="admin-dashboard-page">
+    <div className="admin-dashboard-page animate-in">
       <div className="container">
         {/* Top Header Bar */}
         <header className="admin-header">
           <div>
             <div className="admin-title-row">
               <h1 className="admin-title">Enquiries Inbox</h1>
-              <span className="badge badge-admin">Internal</span>
+              <span className="badge badge-admin">Protected</span>
             </div>
             <p className="admin-subtitle">
               Logged in as <strong>{currentUser}</strong>
@@ -185,7 +206,7 @@ export default function AdminDashboardPage() {
           <div className="admin-header-actions">
             <button
               type="button"
-              onClick={() => fetchEnquiries(page)}
+              onClick={() => fetchEnquiries(page, statusFilter)}
               className="btn btn-secondary btn-sm"
               disabled={loadingList}
               aria-label="Refresh list"
@@ -213,6 +234,22 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
+        {/* Status Filter Tabs */}
+        <div className="admin-filters-bar" role="tablist" aria-label="Filter enquiries by status">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              role="tab"
+              aria-selected={statusFilter === f.id}
+              className={`filter-tab ${statusFilter === f.id ? "filter-tab--active" : ""}`}
+              onClick={() => handleFilterChange(f.id)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
         {/* Main Content Layout */}
         <div className="admin-content-layout">
           {/* Enquiries Table Card */}
@@ -234,8 +271,12 @@ export default function AdminDashboardPage() {
                     <polyline points="22,6 12,13 2,6" />
                   </svg>
                 </div>
-                <h3>No enquiries yet</h3>
-                <p>When visitors submit project briefs via the contact form, they will appear here.</p>
+                <h3>No enquiries found</h3>
+                <p>
+                  {statusFilter !== "all"
+                    ? `There are no enquiries with status '${statusFilter}'.`
+                    : "When visitors submit project briefs via the contact form, they will appear here."}
+                </p>
               </div>
             ) : (
               <div className="table-responsive">
@@ -330,7 +371,7 @@ export default function AdminDashboardPage() {
                     type="button"
                     className="btn btn-secondary btn-sm"
                     disabled={page <= 1 || loadingList}
-                    onClick={() => fetchEnquiries(page - 1)}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
                   >
                     Previous
                   </button>
@@ -338,7 +379,7 @@ export default function AdminDashboardPage() {
                     type="button"
                     className="btn btn-secondary btn-sm"
                     disabled={page >= totalPages || loadingList}
-                    onClick={() => fetchEnquiries(page + 1)}
+                    onClick={() => setPage((p) => p + 1)}
                   >
                     Next
                   </button>
@@ -468,7 +509,7 @@ export default function AdminDashboardPage() {
                         rows={4}
                         value={editNotes}
                         onChange={(e) => setEditNotes(e.target.value)}
-                        placeholder="Add notes about calls, quotes, or status..."
+                        placeholder="Add notes about discovery calls, quotes, or status..."
                         className="form-textarea"
                         disabled={isSaving}
                       />

@@ -11,6 +11,9 @@ from config import get_settings
 settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+# In-memory revocation tracking: maps jti -> expiry datetime
+_revoked_sessions: dict[str, datetime] = {}
+
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -21,18 +24,24 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def create_tokens(subject: str) -> tuple[str, str]:
-    """Return (jwt_token, csrf_token). The csrf claim is embedded in the JWT."""
+    """Return (jwt_token, csrf_token). The csrf claim and unique jti are embedded in the JWT."""
     csrf_token = secrets.token_hex(32)
+    jti = secrets.token_hex(16)
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.access_token_expire_minutes
     )
-    payload = {"sub": subject, "exp": expire, "csrf": csrf_token}
+    payload = {
+        "sub": subject,
+        "exp": expire,
+        "csrf": csrf_token,
+        "jti": jti,
+    }
     jwt_token = jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
     return jwt_token, csrf_token
 
 
 def decode_session(request: Request) -> dict:
-    """Decode the session cookie; raise 401 on any failure."""
+    """Decode the session cookie, verify expiration and revocation; raise 401 on any failure."""
     token = request.cookies.get("session")
     if not token:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
@@ -40,6 +49,9 @@ def decode_session(request: Request) -> dict:
         payload = jwt.decode(
             token, settings.secret_key, algorithms=[settings.algorithm]
         )
+        jti = payload.get("jti")
+        if jti and jti in _revoked_sessions:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session has been invalidated")
         return payload
     except JWTError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired session")
@@ -67,18 +79,48 @@ def set_auth_cookies(response: Response, jwt_token: str, csrf_token: str) -> Non
     secure = settings.is_production
 
     response.set_cookie(
-        "session", jwt_token,
-        httponly=True, secure=secure, samesite="strict", max_age=max_age,
+        "session",
+        jwt_token,
+        httponly=True,
+        secure=secure,
+        samesite="strict",
+        max_age=max_age,
+        path="/",
     )
     response.set_cookie(
-        "csrf_token", csrf_token,
-        httponly=False, secure=secure, samesite="strict", max_age=max_age,
+        "csrf_token",
+        csrf_token,
+        httponly=False,
+        secure=secure,
+        samesite="strict",
+        max_age=max_age,
+        path="/",
     )
 
 
-def clear_auth_cookies(response: Response) -> None:
-    response.delete_cookie("session", samesite="strict")
-    response.delete_cookie("csrf_token", samesite="strict")
+def clear_auth_cookies(response: Response, request: Optional[Request] = None) -> None:
+    # Server-side revocation if request is provided
+    if request:
+        try:
+            token = request.cookies.get("session")
+            if token:
+                payload = jwt.decode(
+                    token, settings.secret_key, algorithms=[settings.algorithm]
+                )
+                jti = payload.get("jti")
+                exp = payload.get("exp")
+                if jti:
+                    exp_dt = (
+                        datetime.fromtimestamp(exp, timezone.utc)
+                        if exp
+                        else datetime.now(timezone.utc) + timedelta(hours=1)
+                    )
+                    _revoked_sessions[jti] = exp_dt
+        except Exception:
+            pass
+
+    response.delete_cookie("session", path="/", samesite="strict")
+    response.delete_cookie("csrf_token", path="/", samesite="strict")
 
 
 def get_client_ip(request: Request) -> str:

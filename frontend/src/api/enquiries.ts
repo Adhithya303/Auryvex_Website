@@ -48,8 +48,16 @@ export const enquiriesApi = {
   submit: (payload: EnquiryCreatePayload) =>
     api.post<EnquiryCreatedResponse>("/api/enquiries", payload),
 
-  list: (page = 1, size = 20) =>
-    api.get<PaginatedEnquiries>(`/api/enquiries?page=${page}&size=${size}`),
+  list: (page = 1, size = 20, status?: string) => {
+    const params = new URLSearchParams({
+      page: String(page),
+      size: String(size),
+    });
+    if (status && status !== "all") {
+      params.set("status", status);
+    }
+    return api.get<PaginatedEnquiries>(`/api/enquiries?${params.toString()}`);
+  },
 
   get: (id: number) =>
     api.get<EnquiryDetail>(`/api/enquiries/${id}`),

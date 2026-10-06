@@ -35,8 +35,8 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
 
 
 @router.post("/logout", response_model=OkResponse)
-def logout(response: Response):
-    clear_auth_cookies(response)
+def logout(response: Response, request: Request):
+    clear_auth_cookies(response, request=request)
     return OkResponse()
 
 

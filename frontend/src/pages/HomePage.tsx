@@ -260,8 +260,8 @@ export default function HomePage() {
               Representative Systems
             </h2>
             <p className="section-subtitle">
-              To protect client non-disclosure agreements, we showcase representative internal
-              systems illustrating the architectural standards and interface polish we deliver.
+              We showcase representative concept systems below to illustrate the architectural
+              standards, interface polish, and operational clarity we build into custom software.
             </p>
           </div>
 

@@ -10,6 +10,7 @@ const WorkPage = React.lazy(() => import("./pages/WorkPage"));
 const ContactPage = React.lazy(() => import("./pages/ContactPage"));
 const AdminLoginPage = React.lazy(() => import("./pages/admin/AdminLoginPage"));
 const AdminDashboardPage = React.lazy(() => import("./pages/admin/AdminDashboardPage"));
+const PrivacyPage = React.lazy(() => import("./pages/PrivacyPage"));
 const NotFoundPage = React.lazy(() => import("./pages/NotFoundPage"));
 
 export function App() {
@@ -23,6 +24,7 @@ export function App() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/work" element={<WorkPage />} />
             <Route path="/contact" element={<ContactPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />
             <Route path="/admin" element={<AdminDashboardPage />} />
             <Route path="*" element={<NotFoundPage />} />

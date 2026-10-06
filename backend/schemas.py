@@ -1,9 +1,34 @@
 from datetime import datetime
 from typing import Optional, Literal
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 
 
-# ── Enquiries ──────────────────────────────────────────────────────────────────
+# ── Allowed Enquiries Options ──────────────────────────────────────────────────
+ALLOWED_SERVICES = {
+    "Custom Web Applications",
+    "Internal Tools & Automation",
+    "Technical Consulting",
+    "Other",
+}
+
+ALLOWED_BUDGETS = {
+    "under_5k",
+    "5k_20k",
+    "20k_50k",
+    "50k_plus",
+    "undisclosed",
+}
+
+ALLOWED_TIMELINES = {
+    "asap",
+    "1_3_months",
+    "3_6_months",
+    "6_plus_months",
+    "unsure",
+}
+
+
+# ── Enquiries Schemas ──────────────────────────────────────────────────────────
 
 class EnquiryCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
@@ -13,6 +38,33 @@ class EnquiryCreate(BaseModel):
     message: str = Field(..., min_length=20, max_length=2000)
     budget: Optional[str] = Field(None, max_length=50)
     timeline: Optional[str] = Field(None, max_length=50)
+
+    @field_validator("service")
+    @classmethod
+    def validate_service(cls, v: Optional[str]) -> Optional[str]:
+        if v and v.strip() and v not in ALLOWED_SERVICES:
+            raise ValueError(
+                f"Invalid service interest. Must be one of: {', '.join(sorted(ALLOWED_SERVICES))}"
+            )
+        return v
+
+    @field_validator("budget")
+    @classmethod
+    def validate_budget(cls, v: Optional[str]) -> Optional[str]:
+        if v and v.strip() and v not in ALLOWED_BUDGETS:
+            raise ValueError(
+                f"Invalid budget option. Must be one of: {', '.join(sorted(ALLOWED_BUDGETS))}"
+            )
+        return v
+
+    @field_validator("timeline")
+    @classmethod
+    def validate_timeline(cls, v: Optional[str]) -> Optional[str]:
+        if v and v.strip() and v not in ALLOWED_TIMELINES:
+            raise ValueError(
+                f"Invalid timeline option. Must be one of: {', '.join(sorted(ALLOWED_TIMELINES))}"
+            )
+        return v
 
 
 class EnquiryCreatedResponse(BaseModel):
@@ -54,7 +106,7 @@ class EnquiryStatusUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-# ── Auth ───────────────────────────────────────────────────────────────────────
+# ── Auth Schemas ───────────────────────────────────────────────────────────────
 
 class LoginRequest(BaseModel):
     username: str

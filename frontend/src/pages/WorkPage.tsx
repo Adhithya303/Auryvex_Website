@@ -21,9 +21,9 @@ export default function WorkPage() {
               Representative Systems &amp; Concept Architectures
             </h1>
             <p className="work-hero-lead">
-              To safeguard client non-disclosure agreements, we do not publicly display private
-              commercial systems. Below are three representative concept architectures demonstrating
-              our engineering approach, interface clarity, and database design.
+              Below are three representative concept architectures demonstrating our engineering
+              approach, interface clarity, and database design. Each concept illustrates how we
+              solve operational friction with bespoke software.
             </p>
           </div>
         </div>
@@ -94,7 +94,7 @@ export default function WorkPage() {
                     </p>
                   </div>
                   <div className="case-col">
-                    <h3 className="case-subhead">What Was Engineered</h3>
+                    <h3 className="case-subhead">Concept Architecture &amp; Approach</h3>
                     <p>
                       A streamlined multi-tenant portal with role-based JWT cookie authentication.
                       Clients review interactive deliverables, upload assets directly into scoped
@@ -193,7 +193,7 @@ export default function WorkPage() {
                     </p>
                   </div>
                   <div className="case-col">
-                    <h3 className="case-subhead">What Was Engineered</h3>
+                    <h3 className="case-subhead">Concept Architecture &amp; Approach</h3>
                     <p>
                       A browser-based inventory command hub backed by SQLite with WAL concurrency.
                       Whenever warehouse stock dips below configured safety floors, webhook triggers
@@ -277,7 +277,7 @@ export default function WorkPage() {
                     </p>
                   </div>
                   <div className="case-col">
-                    <h3 className="case-subhead">What Was Engineered</h3>
+                    <h3 className="case-subhead">Concept Architecture &amp; Approach</h3>
                     <p>
                       An executive reporting engine that consolidates metrics from internal database
                       records and third-party webhooks into an uncluttered interface with automated

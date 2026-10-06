@@ -1,5 +1,8 @@
+from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
+from config import Settings, get_settings
+from jose import jwt
 
 
 def test_health(client: TestClient):
@@ -101,6 +104,38 @@ def test_enquiry_submission_validation(client: TestClient):
     assert res.status_code == 422
 
 
+def test_enquiry_options_validation(client: TestClient):
+    base_payload = {
+        "name": "Validation Tester",
+        "email": "tester@example.com",
+        "message": "Validating option constraints and options rejection on API level.",
+    }
+
+    # Invalid service name
+    res_svc = client.post(
+        "/api/enquiries",
+        json={**base_payload, "service": "Invented Consulting Service"},
+        headers={"X-Forwarded-For": "10.0.0.10"},
+    )
+    assert res_svc.status_code == 422
+
+    # Invalid budget option
+    res_bgt = client.post(
+        "/api/enquiries",
+        json={**base_payload, "budget": "100_million"},
+        headers={"X-Forwarded-For": "10.0.0.11"},
+    )
+    assert res_bgt.status_code == 422
+
+    # Invalid timeline option
+    res_tml = client.post(
+        "/api/enquiries",
+        json={**base_payload, "timeline": "overnight"},
+        headers={"X-Forwarded-For": "10.0.0.12"},
+    )
+    assert res_tml.status_code == 422
+
+
 def test_enquiry_submission_rate_limiting(client: TestClient):
     payload = {
         "name": "Bob Dylan",
@@ -186,10 +221,67 @@ def test_admin_enquiries_management_flow(client: TestClient):
     assert updated_data["status"] == "in_progress"
     assert updated_data["notes"] == "First discovery call scheduled."
 
-    # 8. Logout
+    # 8. Status filtering check
+    filter_in_prog = client.get("/api/enquiries?status=in_progress")
+    assert filter_in_prog.status_code == 200
+    assert any(i["id"] == enquiry_id for i in filter_in_prog.json()["items"])
+
+    filter_closed = client.get("/api/enquiries?status=closed")
+    assert filter_closed.status_code == 200
+    assert not any(i["id"] == enquiry_id for i in filter_closed.json()["items"])
+
+    # 9. Logout
+    saved_session_cookie = client.cookies.get("session")
     logout_res = client.post("/api/auth/logout")
     assert logout_res.status_code == 200
 
-    # 9. Verify unauthenticated after logout
+    # 10. Verify unauthenticated after logout
     after_logout = client.get("/api/enquiries")
     assert after_logout.status_code == 401
+
+    # 11. Verify server-side revocation: re-attaching old session cookie is rejected
+    if saved_session_cookie:
+        client.cookies.set("session", saved_session_cookie)
+        revoked_check = client.get("/api/auth/me")
+        assert revoked_check.status_code == 401
+
+
+def test_production_secret_rejection():
+    # Attempting to start in production with default secrets should fail
+    with pytest.raises(ValueError, match="Production requires a strong SECRET_KEY"):
+        Settings(
+            environment="production",
+            secret_key="dev-secret-key-change-in-production",
+            admin_password="strong-production-pass-12345",
+        )
+
+    with pytest.raises(ValueError, match="Production requires a strong ADMIN_PASSWORD"):
+        Settings(
+            environment="production",
+            secret_key="a-sufficiently-long-and-secure-random-key-here",
+            admin_password="admin",
+        )
+
+
+def test_unknown_api_route_returns_json_error(client: TestClient):
+    res = client.get("/api/nonexistent-route-xyz")
+    assert res.status_code == 404
+    assert res.headers["content-type"].startswith("application/json")
+    assert res.json() == {"detail": "Not Found"}
+
+
+def test_expired_session_rejected(client: TestClient):
+    settings = get_settings()
+    past_expire = datetime.now(timezone.utc) - timedelta(hours=1)
+    payload = {
+        "sub": "admin",
+        "exp": past_expire,
+        "csrf": "expired-csrf",
+        "jti": "expired-jti",
+    }
+    expired_token = jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+    client.cookies.set("session", expired_token)
+
+    res = client.get("/api/auth/me")
+    assert res.status_code == 401
+    assert "Invalid or expired session" in res.json()["detail"]

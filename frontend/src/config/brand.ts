@@ -37,7 +37,7 @@ export const brand = {
   contactEmail: 'hello@auryvex.com',
 
   // LAUNCH BLOCKER: Set after domain is confirmed. Used in meta tags and sitemap.
-  domain: '', // e.g. 'https://auryvex.com'
+  domain: '' as string, // e.g. 'https://auryvex.com'
 
   // Social handles — add once accounts exist, or leave empty to hide
   social: {

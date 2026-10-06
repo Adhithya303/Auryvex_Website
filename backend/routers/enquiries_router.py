@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from auth import get_client_ip, get_current_user, verify_csrf
@@ -9,6 +10,7 @@ from schemas import (
     EnquiryCreate,
     EnquiryCreatedResponse,
     EnquiryDetail,
+    EnquiryListItem,
     EnquiryStatusUpdate,
     PaginatedEnquiries,
 )
@@ -45,6 +47,7 @@ def list_enquiries(
     request: Request,
     page: int = 1,
     size: int = 20,
+    status: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     token_data: dict = Depends(get_current_user),
 ):
@@ -53,17 +56,19 @@ def list_enquiries(
     if size < 1 or size > 100:
         size = 20
 
+    query = db.query(Enquiry)
+    if status and status.lower() != "all":
+        query = query.filter(Enquiry.status == status.lower())
+
+    total = query.count()
     offset = (page - 1) * size
-    total = db.query(Enquiry).count()
     rows = (
-        db.query(Enquiry)
-        .order_by(Enquiry.created_at.desc())
+        query.order_by(Enquiry.created_at.desc())
         .offset(offset)
         .limit(size)
         .all()
     )
 
-    from schemas import EnquiryListItem
     items = [EnquiryListItem.model_validate(r) for r in rows]
     return PaginatedEnquiries(items=items, total=total, page=page, size=size)
 

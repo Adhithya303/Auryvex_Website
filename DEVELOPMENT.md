@@ -9,9 +9,10 @@ Welcome to the development documentation for the Auryvex company website and cus
 - **Frontend**: React 18, TypeScript, Vite, React Router 6, Vanilla CSS design tokens.
 - **Backend**: FastAPI, SQLAlchemy 2.0 (synchronous), Pydantic v2, Python-Jose (JWT), Passlib / Bcrypt.
 - **Database**: SQLite (local dev & single-server prod) with Write-Ahead Logging (WAL) enabled.
-- **Authentication**: Stateless signed JWT stored in an HttpOnly, SameSite=Strict cookie.
+- **Authentication**: Stateless signed JWT stored in an HttpOnly, SameSite=Strict cookie with unique JTI claims and server-side logout revocation.
 - **CSRF Protection**: Double-submit CSRF cookie read and submitted via `X-CSRF-Token` header on state-changing requests (`POST`, `PATCH`).
 - **Rate Limiting**: In-memory rate limiting per client IP on login attempts (5 fails / 15 mins) and enquiry submissions (1 / 60 seconds).
+- **Production Validation**: Pydantic settings reject placeholder/weak secrets and default credentials when `ENVIRONMENT=production`.
 
 ---
 
@@ -61,6 +62,23 @@ Visit `http://localhost:5173` in your browser. All requests to `/api` are automa
 
 ---
 
+## Administrator Account Management
+
+Create or update an administrator account without hardcoding credentials:
+
+```bash
+cd backend
+source .venv/bin/activate        # On Windows: .venv\Scripts\activate
+
+# Interactive mode (prompts securely for password):
+python create_admin.py
+
+# Or via command line arguments:
+python create_admin.py --username admin --password <your-strong-password>
+```
+
+---
+
 ## Database Migrations (Alembic)
 
 When modifying or adding SQLAlchemy models in `backend/models.py`:
@@ -89,14 +107,18 @@ cd backend
 python -m pytest -q
 ```
 
-All 10 integration and unit tests verify:
+All 12 integration and security tests verify:
 - API health check
 - Admin login with HttpOnly session and CSRF cookie issuance
 - Failed login rejection and brute-force rate limiting
 - Protected endpoint rejection on unauthenticated or tampered sessions
 - Enquiry creation with server-side validation and no PII leakage in responses
-- Enquiry submission rate limiting
-- Full admin enquiry management (list, detail, CSRF-protected PATCH update, logout)
+- Strict option validation for service, budget, and timeline options
+- Enquiry submission rate limiting (60s cooldown per IP)
+- Full admin enquiry management (list, detail, CSRF-protected PATCH update)
+- Status filtering (`status=new`, `status=in_progress`, `status=closed`)
+- Server-side session invalidation on logout
+- Production secret rejection when placeholder values are detected
 
 ### Frontend Build & Type Check
 ```bash
@@ -109,7 +131,7 @@ npm run build
 ## Design System & Brand Configuration
 
 - **Brand settings**: Located at `frontend/src/config/brand.ts`. Single source of truth for company name, tagline, email, confirmed services, budget brackets, and concept projects.
-- **Design system CSS**: Defined in `frontend/src/index.css`. Uses strict CSS variables for typography scale (Inter font), 8px-based spacing tokens (`--space-1` through `--space-24`), and color tokens (`--color-accent`, surface, text, and alert tokens).
+- **Design system CSS**: Defined in `frontend/src/index.css`. Uses strict CSS variables for typography scale (Inter font), 8px-based spacing tokens (`--space-1` through `--space-24`), warm off-white background (`#faf9f6`), pure white surfaces, pale lavender supporting sections, and deep navy (`#0b1120`) high-contrast sections.
 - **Reduced motion**: All micro-animations and transitions respect `@media (prefers-reduced-motion: no-preference)`.
 
 ---

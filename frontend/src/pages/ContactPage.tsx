@@ -521,7 +521,8 @@ export default function ContactPage() {
                       )}
                     </button>
                     <span className="privacy-reassurance">
-                      We never share your email with third parties.
+                      We never share your email with third parties. Read our{" "}
+                      <Link to="/privacy">Privacy Notice</Link>.
                     </span>
                   </div>
                 </form>
