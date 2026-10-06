@@ -1,0 +1,17 @@
+.page-skeleton {
+  max-width: var(--max-width);
+  margin-inline: auto;
+  padding: var(--space-20) var(--content-padding);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.page-skeleton__bar {
+  height: 1.25rem;
+  border-radius: var(--radius-md);
+}
+
+.page-skeleton__bar--title { width: 55%; height: 2.5rem; }
+.page-skeleton__bar--sub   { width: 70%; height: 1.1rem; margin-bottom: var(--space-4); }
+.page-skeleton__bar--body  { width: 90%; }

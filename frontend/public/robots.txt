@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# Sitemap: https://auryvex.com/sitemap.xml  ← uncomment after domain is confirmed
